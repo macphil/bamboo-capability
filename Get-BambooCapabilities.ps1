@@ -23,12 +23,10 @@ function Get-BambooCapabilities {
                 }
             }
         }
-        
+
         if ($WhereKeyStartsWith) {
             $capabilities = $capabilities | Where-Object { $_.Key -like "$WhereKeyStartsWith*" }
         }
-    }
-    end {
-        return $capabilities    
+        return $capabilities
     }
 }

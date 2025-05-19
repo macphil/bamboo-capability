@@ -3,6 +3,7 @@ Describe 'Test creating a file with random key-value lines' {
     BeforeAll {
         # Load the function to be tested
         . (Join-Path $PSScriptRoot '..' 'Get-BambooCapabilities.ps1')
+        . (Join-Path $PSScriptRoot '..' 'Set-BambooCapability.ps1')
         function New-RandomKeyFile {
             param($path, $numLines = 5)
             $lines = for ($i = 1; $i -le $numLines; $i++) {
@@ -52,11 +53,10 @@ Describe 'Test creating a file with random key-value lines' {
             'key3=value3'
         )
         Set-Content -Path $testFile -Value $lines
-        
+
         # Act
-        $content = Get-BambooCapabilities -Path $testFile        
-        $content | Write-Host -ForegroundColor Green
-        
+        $content = Get-BambooCapabilities -Path $testFile
+
         # Assert file has correct number of lines and format
         $content.Count | Should -Be 3
         $content[0].Key | Should -Be 'key1'
@@ -73,7 +73,7 @@ Describe 'Test creating a file with random key-value lines' {
         Remove-Item $testFile -Force
     }
     It 'Handles file correctly' {
-    
+
         # Arrange
         $tempPath = [System.IO.Path]::GetTempPath()
         $testFile = Join-Path $tempPath ('bamboo-capabilities.example_{0}.properties' -f ([guid]::NewGuid()))
@@ -107,7 +107,7 @@ Describe 'Test creating a file with random key-value lines' {
     }
 
     It 'Handles WhereKeyStartsWith correctly' {
-    
+
         # Arrange
         $tempPath = [System.IO.Path]::GetTempPath()
         $testFile = Join-Path $tempPath ('bamboo-capabilities.example_{0}.properties' -f ([guid]::NewGuid()))
@@ -132,6 +132,43 @@ Describe 'Test creating a file with random key-value lines' {
         $content.Count | Should -Be 1
         $content.Key | Should -Be 'system.jdk.JDK\ 1.6'
         $content.Value | Should -Be 'C:\\Program Files\\Java\\jdk6.0.17'
+
+        # Cleanup
+        Remove-Item $testFile -Force
+    }
+
+    It 'Handles Update correctly' {
+
+        # Arrange
+        $tempPath = [System.IO.Path]::GetTempPath()
+        $testFile = Join-Path $tempPath ('bamboo-capabilities.example_{0}.properties' -f ([guid]::NewGuid()))
+
+        $keyToUpdate = 'system.jdk.JDK\ 1.6'
+        $newValue = 'C:\\Program Files\\Java\\jdk6.0.25'
+        $keyToAdd = 'system.jdk.JDK\ 25'
+        $newValueToAdd = 'C:\\Program Files\\Java\\jdk25'
+
+        # Example properties based on Atlassian documentation
+        $lines = @(
+            '# comment'
+            'system.jdk.JDK\ 17=/opt/java/openjdk17/bin/java'
+            "$keyToUpdate=C:\\Program Files\\Java\\jdk6.0.17"
+            'system.git.executable=/usr/bin/git'
+            'system.docker.executable=/usr/local/bin/docker'
+            'system.maven.Maven_3_6=/usr/local/apache-maven-3.6.3'
+            'custom.capability.example=exampleValue'
+        )
+        Set-Content -Path $testFile -Value $lines
+
+        # Act
+        Set-BambooCapability -Path $testFile -Key $keyToUpdate -Value $newValue
+        Set-BambooCapability -Path $testFile -Key $keyToAdd -Value $newValueToAdd
+
+        $content = Get-BambooCapabilities -Path $testFile
+        # Assert
+        $content | Where-Object { $_.Key -eq $keyToUpdate } | Select-Object -ExpandProperty Value | Should -Be $newValue
+        $content | Where-Object { $_.Key -eq $keyToAdd } | Select-Object -ExpandProperty Value | Should -Be $newValueToAdd
+        $content.Count | Should -Be 7
 
         # Cleanup
         Remove-Item $testFile -Force
