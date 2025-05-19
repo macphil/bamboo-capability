@@ -15,6 +15,16 @@ Describe 'Test creating a file with random key-value lines' {
             # Write-Host "File created at $path with $numLines lines."
         }
 
+        $tempPath = [System.IO.Path]::GetTempPath()
+        $multipleTestFile = Join-Path $tempPath 'bamboo-capabilities.example_multiple.properties'
+        Set-Content -Path $multipleTestFile -Value '# test file'         
+
+    }
+
+    AfterAll {
+        # Cleanup
+        Get-Content $multipleTestFile | Write-Host -ForegroundColor Green        
+        Remove-Item $multipleTestFile -Force
     }
 
     It 'Creates a test file with random key-value pairs in the temp folder' {
@@ -161,8 +171,14 @@ Describe 'Test creating a file with random key-value lines' {
         Set-Content -Path $testFile -Value $lines
 
         # Act
-        Set-BambooCapability -Path $testFile -Key $keyToUpdate -Value $newValue
-        Set-BambooCapability -Path $testFile -Key $keyToAdd -Value $newValueToAdd
+        $setBambooParams = @{
+            Path    = $testFile
+            Debug   = $false
+            Verbose = $true
+        }
+
+        Set-BambooCapability @setBambooParams -Key $keyToUpdate -Value $newValue
+        Set-BambooCapability @setBambooParams -Key $keyToAdd -Value $newValueToAdd
 
         $content = Get-BambooCapabilities -Path $testFile
         # Assert
@@ -172,5 +188,65 @@ Describe 'Test creating a file with random key-value lines' {
 
         # Cleanup
         Remove-Item $testFile -Force
-    }    
+    }
+    
+    It "Handles '<ArrangedKey>' correctly" -ForEach @(
+        @(
+            @{ ArrangedKey = 'key.with.dot' ; InitialValue = 'init-dot-{0}' -f [guid]::NewGuid() ; UpdatedValue = 'upd-dot-{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key-with-dash'; InitialValue = 'init-dash-{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd-dash-{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key_with_underscore'; InitialValue = 'init_underscore_{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd_underscore_{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key with space'; InitialValue = 'init space {0}' -f [guid]::NewGuid(); UpdatedValue = 'upd space {0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key/with/slash'; InitialValue = 'init/slash/{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd/slash/{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key\with\backslash'; InitialValue = 'init\backslash\{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd\backslash\{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key:with:colon'; InitialValue = 'init:colon:{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd:colon:{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key,with,comma'; InitialValue = 'init,comma,{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd,comma,{0}' -f [guid]::NewGuid() }
+            # @{ ArrangedKey = 'key=with=equals'; InitialValue = 'init=equals={0}' -f [guid]::NewGuid(); UpdatedValue = 'upd=equals={0}' -f [guid]::NewGuid() } # This is malformed and should throw an error
+            @{ ArrangedKey = 'key#with#hash'; InitialValue = 'init#hash#{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd#hash#{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key$with$dollar'; InitialValue = 'init$dollar${0}' -f [guid]::NewGuid(); UpdatedValue = 'upd$dollar${0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key%with%percent'; InitialValue = 'init%percent%{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd%percent%{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key@with@at'; InitialValue = 'init@at@{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd@at@{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key!with!exclamation'; InitialValue = 'init!exclamation!{0}' -f [guid]::NewGuid(); UpdatedValue = 'upd!exclamation!{0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key(with(paren)'; InitialValue = 'init(paren){0}' -f [guid]::NewGuid(); UpdatedValue = 'upd(paren){0}' -f [guid]::NewGuid() }
+            @{ ArrangedKey = 'key)with)paren)'; InitialValue = 'init)paren){0}' -f [guid]::NewGuid(); UpdatedValue = 'upd)paren){0}' -f [guid]::NewGuid() }
+        )
+    ) {
+        # Act
+        $setBambooParams = @{
+            Path    = $multipleTestFile
+            Debug   = $false
+            Verbose = $true
+            Key     = $ArrangedKey
+            Value   = $InitialValue
+        }
+
+        Set-BambooCapability @setBambooParams
+
+        $initialActial = Get-BambooCapabilities -Path $multipleTestFile -WhereKeyStartsWith $ArrangedKey
+        $initialActial.Count | Should -Be 1
+        $initialActial | Select-Object -ExpandProperty Value | Should -Be $InitialValue
+
+        # Update the capability
+        $setBambooParams.Value = $UpdatedValue
+        Set-BambooCapability @setBambooParams
+        $updatedActual = Get-BambooCapabilities -Path $multipleTestFile -WhereKeyStartsWith $ArrangedKey
+        $updatedActual.Count | Should -Be 1
+        $updatedActual | Select-Object -ExpandProperty Value | Should -Be $UpdatedValue
+    }
+
+    It "Handles mailformed key '<ArrangedKey>' correctly" -ForEach @(
+        @{ArrangedKey = 'key=with=equals' }
+        @{ArrangedKey = '' }
+        @{ArrangedKey = $null }
+    ) {
+        # Act
+        $setBambooParams = @{
+            Path    = $multipleTestFile
+            Debug   = $false
+            Verbose = $true
+            Key     = $ArrangedKey
+            Value   = 'newValue'
+        }
+
+        { Set-BambooCapability @setBambooParams } | Should -Throw -ErrorId 'ParameterArgumentValidationError,Set-BambooCapability'
+    }
 }

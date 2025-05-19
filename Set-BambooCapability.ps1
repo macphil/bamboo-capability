@@ -2,6 +2,7 @@ function Set-BambooCapability {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
+        [ValidatePattern('^[^=]+$')]
         [string]$Key,
 
         [Parameter(Mandatory)]
@@ -18,26 +19,30 @@ function Set-BambooCapability {
             return
         }
 
+        $newLine = [Environment]::NewLine
+
         $lines = Get-Content -Path $Path
+        if ( $lines.Count -eq 1) { 
+            $lines += $newLine
+        }
         $found = $false
 
         $updatedLines = $lines | ForEach-Object {
-            Write-Debug ("Processing line: $_")
             if ("$_".StartsWith("$Key=")) {
                 $found = $true
-                Write-Debug ' - Found existing key, updating value.'
+                Write-Verbose "Found key '$Key', updating value."
                 "$Key=$Value"
             } else {
-                Write-Debug " - Key '$Key' not found, keeping line."
+                Write-Debug "Key '$Key' not found, keeping line."
                 $_
             }
         }
 
         if (-not $found) {
-            Write-Debug " - Key '$Key' not found, adding new capability."
-            $updatedLines += "$Key=$Value"
+            Write-Verbose "Key '$Key' not found, adding new capability."
+            $updatedLines += "$Key=$Value" 
         }
 
-        $updatedLines | Set-Content -Path $Path
+        $updatedLines | Set-Content -Path $Path 
     }
 }
