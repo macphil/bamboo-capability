@@ -6,3 +6,6 @@ Simple PowerShell-Functions to Get and Update a `bamboo-capability.property`-Fil
 
 - <https://support.atlassian.com/bamboo/kb/list-of-default-keys-for-the-bamboo-capabilitiesproperties-file/>
 - <https://github.com/haoshuwei/docker-bamboo-agent/blob/master/bamboo-update-capability.sh>
+
+## a change
+this is a change
